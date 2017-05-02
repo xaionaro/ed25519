@@ -151,18 +151,23 @@ void printhex(const unsigned char * array, int bytes)
 void hex_decode(unsigned char * buffer, size_t buflen, char * hex)
 {
     int failed = 1;
-    size_t i;
-    if (strlen(hex) == buflen*2) {
+    if (strlen(hex) >= buflen*2) {
+	size_t s,d;
 	failed = 0;
-	for(i=0; i<buflen; i++) {
-	    char hex2[4], *ep;
-	    int v;
-	    hex2[0] = hex[i*2];
-	    hex2[1] = hex[i*2+1];
-	    hex2[2] = 0;
-	    v = strtol(hex2, &ep, 16);
-	    if (v < 0 || ep != hex2+2) {failed = 1; break; }
-	    buffer[i] = v;
+	for (s=0,d=0; hex[s] && !failed;) {
+	    int ch = hex[s++];
+	    if (!isascii(ch) || isspace(ch) || ch == ':') continue;
+	    if (isxdigit(ch) && isxdigit(hex[s])) {
+		if (d >= buflen) failed = 1;
+		else {
+		    char hex2[4];
+		    hex2[0] = ch;
+		    hex2[1] = hex[s++];
+		    hex2[2] = 0;
+		    buffer[d++] = strtol(hex2, 0, 16);
+		}
+	    } else
+		failed = 1;
 	}
     }
 
@@ -316,7 +321,7 @@ process_file(int flg_h, char *hex_secret, char *hex_pub, char *hex_signature, ch
 
 	fetch_secret_key(public_key, private_key, hex_secret);
 
-	ed25519_sign(signature, file_data, file_size, public_key, private_key);
+	ed25519ph_sign(signature, file_data, file_size, public_key, private_key, flg_h);
 	printhex(signature, sizeof(signature));
     }
     else
@@ -327,7 +332,7 @@ process_file(int flg_h, char *hex_secret, char *hex_pub, char *hex_signature, ch
 	hex_decode(signature, sizeof(signature), hex_signature);
 	hex_decode(public_key, sizeof(public_key), hex_pub);
 
-	if (ed25519_verify(signature, file_data, file_size, public_key)) {
+	if (ed25519ph_verify(signature, file_data, file_size, public_key, flg_h)) {
 	    printf("Valid signature\n");
 	} else {
 	    fprintf(stderr, "ERROR: Invalid signature\n");
