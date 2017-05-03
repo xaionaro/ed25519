@@ -7,8 +7,10 @@
 #include "src/ed25519.h"
 #include "src/sha512.h"
 
+#ifdef NO_ed25519_derive_public
 #include "src/ge.h"
 #include "src/sc.h"
+#endif
 
 void printhex(const unsigned char * array, int bytes);
 void hex_decode(unsigned char * buffer, size_t buflen, char * hex);
@@ -224,6 +226,16 @@ fetch_secret_key(unsigned char *public_key, unsigned char *private_key, char *he
     }
     else
     {
+#ifndef NO_ed25519_derive_public
+	hex_decode(private_key, 64, hex_secret);
+
+	/* Make sure this is a private key. */
+	private_key[0] &= 248;
+	private_key[31] &= 63;
+	private_key[31] |= 64;
+
+	ed25519_derive_public(public_key, private_key);
+#else
 	ge_p3 A;
 
 	hex_decode(private_key, 64, hex_secret);
@@ -236,6 +248,7 @@ fetch_secret_key(unsigned char *public_key, unsigned char *private_key, char *he
 	/* Generate the public key from a private key ... */
 	ge_scalarmult_base(&A, private_key);
 	ge_p3_tobytes(public_key, &A);
+#endif
     }
 }
 
