@@ -1,0 +1,43 @@
+# https://travis-ci.org/rdebath/Brainfuck/builds
+language: c
+
+# Select Trusty
+dist: trusty
+sudo: false
+group: beta
+
+addons:
+  apt:
+    packages:
+    - g++-multilib
+
+os:
+  - linux
+  - osx
+
+compiler:
+  - clang
+  - gcc
+
+env:
+  - TARGET_ARCH=-m64
+  - TARGET_ARCH=-m32
+# Ubunty Precise doesn't know about mx32
+  - TARGET_ARCH=-mx32
+
+# Clang linux has no -mx32 and gcc osx is a clang fake
+matrix:
+    exclude:
+        -
+            os: linux
+            compiler: clang
+            env: TARGET_ARCH=-mx32
+        -
+            os: osx
+            compiler: gcc
+
+# Only run the tests if the exe was built.
+script:
+  - make CC="$CC"
+  - make test
+
