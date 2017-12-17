@@ -1,4 +1,4 @@
-# https://travis-ci.org/rdebath/Brainfuck/builds
+# https://travis-ci.org/rdebath/ed25519/builds
 language: c
 
 # Select Trusty
