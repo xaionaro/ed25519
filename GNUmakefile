@@ -15,7 +15,7 @@ TARGETS=\
 LIB_SRCS=$(wildcard src/*.c)
 LIB_OBJS=$(patsubst %.c,%.o,$(LIB_SRCS))
 
-all: $(TARGETS)
+all: ed25519
 
 clean:
 	-rm -f $(TARGETS) $(LIB_OBJS)
