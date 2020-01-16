@@ -1,21 +1,36 @@
 
 CC= gcc
-CFLAGS= -Wall -Wextra -O3 -fwrapv $(FLTO)
+CFLAGS= -Wall -Wextra -O3 -fwrapv -fPIC
+LDFLAGS=
 ifeq ($(CC),gcc)
-FLTO ?= -flto=8
+LDFLAGS+= -flto=8 -Wl,--gc-sections
+CFLAGS+= -fdata-sections -ffunction-sections
 endif
 
-TARGET=ed25519
+TARGETS=\
+	ed25519\
+	ed25519.a\
+	ed25519.so
 
-all: $(TARGET)
+LIB_SRCS=$(wildcard src/*.c)
+LIB_OBJS=$(patsubst %.c,%.o,$(LIB_SRCS))
+
+all: $(TARGETS)
 
 clean:
-	-rm -f $(TARGET)
+	-rm -f $(TARGETS) $(LIB_OBJS)
 
-test: $(TARGET)
+test: $(TARGETS)
 	bash ed25519_tests
 
-$(TARGET): src/*.c
+ed25519: $(LIB_OBJS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(TARGET_ARCH) -o ed25519 main.c $(LIB_OBJS)
 
-%: %.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -o $@ $^
+ed25519.so: $(LIB_OBJS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(TARGET_ARCH) -fPIC -shared -o ed25519.so $(LIB_OBJS)
+
+ed25519.a: $(LIB_OBJS)
+	ar rcs ed25519.a $(LIB_OBJS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -fPIC -c -o $@ $^
