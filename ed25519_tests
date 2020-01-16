@@ -1,0 +1,126 @@
+#!/bin/bash
+if [ ! -n "$BASH_VERSION" ];then exec bash "$0" "$@";else set +o posix;fi
+
+################################################################################
+
+# Tests from RFC8032
+
+SK=833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42
+TC_PK=ec172b93ad5e563bf4932c70e1245034c35467ef2efd4d64ebf819683467e2bf
+
+
+PK=$(./ed25519 -k $SK)
+
+if [ "$PK" != "$TC_PK" ]
+then
+    echo Public key generation error.
+    exit
+fi
+
+# SHA(abc)
+MSG=$(echo '
+   ddaf35a193617abacc417349ae204131
+   12e6fa4e89a97ea20a9eeee64b55d39a
+   2192992a274fc1a836ba3c23a3feebbd
+   454d4423643ce80e2a9ac94fa54ca49f
+   ' | tr -d ' \012\011')
+
+GOOD_SIG=$(echo '
+   dc2a4459e7369633a52b1bf277839a00
+   201009a3efbf3ecb69bea2186c26b589
+   09351fc9ac90b3ecfdfbc7c66431e030
+   3dca179c138ac17ad9bef1177331a704
+   ' | tr -d ' \012\011')
+
+sig=$(echo $MSG | xxd -r -p | ./ed25519 -s $SK)
+
+if [ "$sig" != "$GOOD_SIG" ]
+then
+    echo Ed25519 signing error
+    echo $GOOD_SIG
+    echo $sig
+    exit
+fi
+
+echo $MSG | xxd -r -p | ./ed25519 -pv $PK $sig || {
+
+    echo Ed25519 verify error
+    exit
+}
+
+GOOD_PHSIG=$(echo '
+   98a70222f0b8121aa9d30f813d683f80
+   9e462b469c7ff87639499bb94e6dae41
+   31f85042463c2a355a2003d062adf5aa
+   a10b8c61e636062aaad11c2a26083406
+   ' | tr -d ' \012\011')
+
+sig=$(echo 616263 | xxd -r -p | ./ed25519 -hs $SK)
+
+if [ "$sig" != "$GOOD_PHSIG" ]
+then
+    echo Ed25519ph signing error
+    exit
+fi
+
+echo 616263 | xxd -r -p | ./ed25519 -hpv $PK $sig || {
+
+    echo Ed25519ph verify error
+    exit
+}
+
+
+################################################################################
+
+[ -f sign.input ] ||
+    wget https://github.com/pyca/cryptography/raw/master/vectors/cryptography_vectors/asymmetric/Ed25519/sign.input
+
+[ -f sign.input ] ||
+    wget https://ed25519.cr.yp.to/python/sign.input
+
+[ -f sign.input ] || exit
+
+################################################################################
+
+while IFS=: read secret public message verify
+do
+    npublic=$(./ed25519 -k ${secret:0:64} )
+
+    if [ "$npublic" != "$public" ]
+    then 
+	echo PKEY ERROR= $secret . $public . $message . $verify
+	exit
+    fi
+
+    nverify=$(echo $message | xxd -r -p  | ./ed25519 -s ${secret:0:64} )
+
+    if [ "$nverify$message" != "$verify" ]
+    then 
+	echo SIGN ERROR= $secret . $public . $message . $verify
+	exit
+    fi
+
+    if ! echo $message | xxd -r -p | ./ed25519 -p $public -v $nverify >/dev/null
+    then
+	echo VERIFY ERROR= $secret . $public . $message . $verify
+	exit
+    fi
+
+    if [ "${#message}" -gt 2 ]
+    then
+	# Increment last byte
+	last="${message: -2}"
+	last=$(printf %02x $(echo $(( 0x$last + 1 )) ) )
+	last="${last: -2}"
+	message=${message:0:${#message}-2}$last
+
+	if echo $message | xxd -r -p | ./ed25519 -p $public -v $nverify >/dev/null 2>&1
+	then
+	    echo FALSE POSITIVE VERIFY ERROR= $secret . $public . $message . $verify
+	    exit
+	fi
+    fi
+
+done < sign.input
+
+echo All done

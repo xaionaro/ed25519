@@ -30,6 +30,7 @@ int ed25519_create_seed(unsigned char *seed) {
         return 1;
     }
 
+    setbuf(f, NULL);
     if (fread(seed, 1, 32, f) != 32) {
         fclose(f);
         return 1;

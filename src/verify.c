@@ -45,6 +45,10 @@ static int consttime_equal(const unsigned char *x, const unsigned char *y) {
 }
 
 int ed25519_verify(const unsigned char *signature, const unsigned char *message, size_t message_len, const unsigned char *public_key) {
+    return ed25519ph_verify(signature, message, message_len, public_key, 0);
+}
+
+int ed25519ph_verify(const unsigned char *signature, const unsigned char *message, size_t message_len, const unsigned char *public_key, int prehash) {
     unsigned char h[64];
     unsigned char checker[32];
     sha512_context hash;
@@ -60,6 +64,8 @@ int ed25519_verify(const unsigned char *signature, const unsigned char *message,
     }
 
     sha512_init(&hash);
+    if (prehash)
+        sha512_update(&hash, (const unsigned char *)"SigEd25519 no Ed25519 collisions\001", 34);
     sha512_update(&hash, signature, 32);
     sha512_update(&hash, public_key, 32);
     sha512_update(&hash, message, message_len);
